@@ -887,10 +887,17 @@ const SCHEDULE_API = '/.netlify/functions/schedule';
 const DEFAULT_SCHEDULE = {
   closedDates: [],
   openTimes: [],           // Empty by default — admin must approve times before they appear
-  approvedDates: [],       // Admin-approved specific dates available for booking
+  approvedDates: {},       // Admin-approved specific dates available for booking
   blockedTimesPerDate: {},
   bookings: [],
 };
+
+// Helper — ensure approvedDates is always an object, never an array
+function ensureApprovedDates() {
+  if (!SCHEDULE.approvedDates || Array.isArray(SCHEDULE.approvedDates)) {
+    SCHEDULE.approvedDates = {};
+  }
+}
 
 // In-memory copy — loaded from server on page load and after saves
 let SCHEDULE = { ...DEFAULT_SCHEDULE };
@@ -916,6 +923,7 @@ async function loadSchedule() {
     if (!res.ok) throw new Error('Server unavailable');
     const data = await res.json();
     SCHEDULE = { ...DEFAULT_SCHEDULE, ...data };
+    ensureApprovedDates(); // fix if JSONBin has old array format
     setLocalCache(SCHEDULE);
     return SCHEDULE;
   } catch(err) {
@@ -923,6 +931,7 @@ async function loadSchedule() {
     console.warn('Schedule: using local fallback.', err.message);
     const cached = getLocalCache();
     SCHEDULE = { ...DEFAULT_SCHEDULE, ...(cached || {}) };
+    ensureApprovedDates();
     return SCHEDULE;
   }
 }
@@ -991,7 +1000,7 @@ async function openAdminPanel() {
   if (!SCHEDULE.closedDates) SCHEDULE.closedDates = [];
   if (!SCHEDULE.bookings) SCHEDULE.bookings = [];
   if (!SCHEDULE.blockedTimesPerDate) SCHEDULE.blockedTimesPerDate = {};
-  if (!SCHEDULE.approvedDates) SCHEDULE.approvedDates = {};
+  ensureApprovedDates();
   renderAdminDays();
 }
 
@@ -1116,7 +1125,7 @@ function closeDateManager() {
 function toggleFullDayBlock() {
   const dk = activeManagedDate;
   if (!dk) return;
-  if (!SCHEDULE.approvedDates) SCHEDULE.approvedDates = {};
+  ensureApprovedDates();
   const approvedTimes = SCHEDULE.approvedDates[dk] || [];
   if (approvedTimes.length > 0) {
     // Close the day — remove all approved times
@@ -1132,7 +1141,7 @@ function toggleFullDayBlock() {
 function renderPerDayTimeGrid(dateVal) {
   if (!dateVal) return;
   const grid = document.getElementById('per-day-slots-grid');
-  if (!SCHEDULE.approvedDates) SCHEDULE.approvedDates = {};
+  ensureApprovedDates();
   const approvedTimes = SCHEDULE.approvedDates[dateVal] || [];
 
   grid.innerHTML = '';
@@ -1335,18 +1344,24 @@ async function saveAdminSettings() {
   const msg = document.getElementById('admin-save-msg');
   msg.textContent = 'Saving…';
   msg.style.color = 'var(--muted)';
+
+  ensureApprovedDates();
+
   // Auto-clean any approved dates that are now in the past
   const todayKey = dateKey(new Date());
   SCHEDULE.closedDates = (SCHEDULE.closedDates || []).filter(d => d >= todayKey);
-  if (SCHEDULE.approvedDates) {
-    Object.keys(SCHEDULE.approvedDates).forEach(d => {
-      if (d < todayKey) delete SCHEDULE.approvedDates[d];
-    });
-  }
+  Object.keys(SCHEDULE.approvedDates).forEach(d => {
+    if (d < todayKey) delete SCHEDULE.approvedDates[d];
+  });
+
+  // Log what we're saving so you can verify in browser console
+  console.log('Saving schedule:', JSON.stringify(SCHEDULE.approvedDates));
+
   const ok = await saveSchedule(SCHEDULE);
   if (ok) {
     msg.style.color = 'var(--green)';
-    msg.textContent = '✓ Saved & synced to all devices!';
+    const count = Object.keys(SCHEDULE.approvedDates).length;
+    msg.textContent = `✓ Saved! ${count} date${count!==1?'s':''} approved.`;
   } else {
     msg.style.color = 'var(--red)';
     msg.textContent = '⚠ Saved locally only — check your internet connection.';
