@@ -475,6 +475,7 @@
       </div>
 
       <button class="btn-admin-action" onclick="saveAdminSettings()" style="margin-top:24px;">💾 Save All Changes</button>
+      <button class="btn-admin-action" onclick="debugSchedule()" style="margin-top:8px;background:var(--steel);border:1px solid var(--border);color:var(--muted);font-size:13px;">🔍 Check What's Saved</button>
       <p id="admin-save-msg" style="text-align:center;font-size:13px;color:var(--green);margin-top:10px;min-height:18px;"></p>
     </div>
 
@@ -922,8 +923,19 @@ async function loadSchedule() {
     const res = await fetch(SCHEDULE_API);
     if (!res.ok) throw new Error('Server unavailable');
     const data = await res.json();
+    // Merge carefully — never let old array format wipe object format
     SCHEDULE = { ...DEFAULT_SCHEDULE, ...data };
-    ensureApprovedDates(); // fix if JSONBin has old array format
+    ensureApprovedDates();
+    // Preserve local approvedDates if server returned empty/array
+    const localCache = getLocalCache();
+    if (localCache && localCache.approvedDates && !Array.isArray(localCache.approvedDates)) {
+      const serverApproved = SCHEDULE.approvedDates;
+      const localApproved  = localCache.approvedDates;
+      // Use whichever has more data
+      if (Object.keys(localApproved).length > Object.keys(serverApproved).length) {
+        SCHEDULE.approvedDates = localApproved;
+      }
+    }
     setLocalCache(SCHEDULE);
     return SCHEDULE;
   } catch(err) {
@@ -1054,6 +1066,29 @@ let activeManagedDate = null;
 
 function renderAdminTimes() { /* managed per-date */ }
 function blockSpecificDate() {}
+
+async function debugSchedule() {
+  const msg = document.getElementById('admin-save-msg');
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Fetching from server…';
+  try {
+    const res = await fetch(SCHEDULE_API);
+    const data = await res.json();
+    const approved = data.approvedDates || {};
+    const count = Object.keys(approved).length;
+    const isArray = Array.isArray(data.approvedDates);
+    msg.style.color = count > 0 ? 'var(--green)' : 'var(--red)';
+    msg.textContent = isArray
+      ? '⚠ Server has approvedDates as ARRAY (old format) — click Save All Changes to fix.'
+      : count > 0
+        ? `✓ Server has ${count} approved date(s): ${Object.keys(approved).join(', ')}`
+        : '⚠ Server has 0 approved dates. Try saving again.';
+  } catch(e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Error reaching server: ' + e.message;
+  }
+  setTimeout(() => { msg.textContent = ''; msg.style.color = ''; }, 8000);
+}
 function renderBlockedDates() {}
 function unblockDate(d) {}
 
@@ -1346,6 +1381,11 @@ async function saveAdminSettings() {
   msg.style.color = 'var(--muted)';
 
   ensureApprovedDates();
+
+  // Double-check approvedDates is still an object before saving
+  if (Array.isArray(SCHEDULE.approvedDates)) {
+    SCHEDULE.approvedDates = {};
+  }
 
   // Auto-clean any approved dates that are now in the past
   const todayKey = dateKey(new Date());
