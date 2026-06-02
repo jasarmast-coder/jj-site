@@ -1142,12 +1142,16 @@ function renderBlockedDates() {}
 function unblockDate(d) {}
 
 // ── Tab switching ──
-function switchAdminTab(tab, btn) {
+async function switchAdminTab(tab, btn) {
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.admin-tab-panel').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('admin-tab-' + tab).classList.add('active');
-  if (tab === 'bookings') renderBookingsSpreadsheet();
+  if (tab === 'bookings') {
+    // Always pull fresh data from server before showing bookings
+    await loadSchedule();
+    renderBookingsSpreadsheet();
+  }
 }
 
 // ── Sorting state ──
@@ -1167,7 +1171,6 @@ function filterBookingsTable(val) {
 }
 
 function renderBookingsSpreadsheet() {
-  SCHEDULE = loadSchedule();
   const bookings = SCHEDULE.bookings || [];
 
   // Stats
