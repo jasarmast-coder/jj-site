@@ -227,6 +227,21 @@
     .time-slot.selected { background:var(--gold); border-color:var(--gold); color:var(--black); font-weight:700; }
     .time-slot.slot-disabled { color:#333; cursor:not-allowed; text-decoration:line-through; border-style:dashed; }
 
+    /* ── Available Dates List ── */
+    .avail-date-btn {
+      display:flex; align-items:center; justify-content:space-between;
+      width:100%; background:var(--steel); border:1px solid var(--border);
+      border-radius:var(--r); padding:14px 18px; margin-bottom:8px;
+      cursor:pointer; transition:all .2s; text-align:left;
+      font-family:'DM Sans',sans-serif; color:var(--white);
+    }
+    .avail-date-btn:hover { border-color:var(--gold); background:var(--gold-dim); }
+    .avail-date-btn.selected { border-color:var(--gold); background:var(--gold-dim); }
+    .avail-date-btn .date-label { font-weight:600; font-size:15px; }
+    .avail-date-btn .date-slots { font-size:12px; color:var(--muted); }
+    .avail-date-btn .date-arrow { color:var(--gold); font-size:18px; }
+    .avail-date-btn.selected .date-arrow { transform:rotate(90deg); }
+
     /* ── Summary ── */
     .sum-table { width:100%; border-collapse:collapse; font-size:14px; }
     .sum-table td { padding:8px 0; border-bottom:1px solid var(--border); }
@@ -435,24 +450,27 @@
     <!-- TAB 1: Schedule -->
     <div class="admin-tab-panel active" id="admin-tab-schedule">
 
-      <!-- Upcoming 10-day grid -->
       <div class="admin-section-title" style="margin-top:0">Upcoming 10 Days</div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Tap any date to manage it — block the whole day or pick specific times to close.</p>
-      <div class="day-grid" id="admin-day-grid" style="grid-template-columns:repeat(5,1fr);"></div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">All days start <strong style="color:var(--red)">closed</strong>. Tap a day to open it and choose which times are available.</p>
+      <div id="admin-day-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;"></div>
 
       <!-- Per-date manager -->
-      <div id="date-manager" style="display:none;margin-top:20px;">
-        <div class="admin-section-title" id="date-manager-title" style="margin-top:0"></div>
-
-        <!-- Full day toggle -->
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-          <button id="btn-block-full" class="btn-admin-action" style="width:auto;margin-top:0;background:var(--red);border:none;" onclick="toggleFullDayBlock()"></button>
-          <button class="btn-admin-action" style="width:auto;margin-top:0;background:transparent;border:1px solid var(--border);color:var(--muted);" onclick="closeDateManager()">✕ Close</button>
+      <div id="date-manager" style="display:none;margin-top:24px;background:var(--steel);border:1px solid var(--border);border-radius:10px;padding:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+          <div class="admin-section-title" id="date-manager-title" style="margin-top:0;margin-bottom:0;"></div>
+          <button class="btn-admin-action" style="width:auto;margin-top:0;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px;padding:6px 14px;" onclick="closeDateManager()">✕ Close</button>
         </div>
 
-        <!-- Per-time slots -->
-        <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Or block individual time slots for this day only:</p>
-        <div class="time-admin-grid" id="per-day-slots-grid"></div>
+        <!-- Open / Close full day -->
+        <div style="margin-bottom:18px;">
+          <button id="btn-block-full" class="btn-admin-action" style="width:auto;margin-top:0;" onclick="toggleFullDayBlock()"></button>
+        </div>
+
+        <!-- Time slot approvals -->
+        <div id="time-approval-section">
+          <p style="font-size:12px;color:var(--muted);margin-bottom:10px;">Select which time slots are available on this day:</p>
+          <div class="time-admin-grid" id="per-day-slots-grid"></div>
+        </div>
         <p id="per-day-status" style="font-size:12px;color:var(--gold);margin-top:10px;min-height:16px;"></p>
       </div>
 
@@ -745,44 +763,57 @@
 
         <!-- EXTERIOR -->
         <div class="service-category">
-          <div class="service-cat-label"><em>✦</em> Exterior</div>
+          <div class="service-cat-label"><em>🚗</em> Exterior</div>
           <div class="chip-grid">
             <div class="chip" id="chip-wash" onclick="toggleChip(this); updateChipPrices()">
               <div class="chip-check">✓</div>
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
                 <div class="chip-name" style="margin-bottom:0">Basic Wash</div>
                 <span style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:1px 5px;">TIER 1</span>
               </div>
               <div class="chip-price" id="price-wash">Cars $65 · SUVs $75</div>
+              <p class="chip-note">Foam bath · graphite sealant · tire shine</p>
             </div>
             <div class="chip" id="chip-ceramic" onclick="toggleChip(this); updateChipPrices()">
               <div class="chip-check">✓</div>
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
                 <div class="chip-name" style="margin-bottom:0">Ceramic Package</div>
                 <span style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:1px 5px;">TIER 2</span>
               </div>
               <div class="chip-price" id="price-ceramic">Cars $150 · SUVs $170</div>
-              <p class="chip-note">Includes Basic Wash</p>
+              <p class="chip-note">Includes Basic Wash + 6-month ceramic coating</p>
             </div>
           </div>
         </div>
 
         <!-- INTERIOR -->
         <div class="service-category">
-          <div class="service-cat-label"><em>✦</em> Interior</div>
-          <div class="chip-grid">
+          <div class="service-cat-label"><em>🧹</em> Interior</div>
+          <div class="chip-grid" style="grid-template-columns:1fr;">
             <div class="chip" id="chip-interior" onclick="toggleInterior(this)">
               <div class="chip-check">✓</div>
               <div class="chip-name">Interior Deep Clean</div>
-              <div class="chip-price" id="price-interior">Cars &amp; Trucks $125 · SUVs $145</div>
+              <div class="chip-price" id="price-interior">Cars & Trucks $125 · SUVs $145</div>
+              <p class="chip-note">Full vacuum · carpet extraction · glass · mats · fresh scent</p>
             </div>
-            <div class="chip" id="chip-pethair" onclick="togglePetHair(this)">
+          </div>
+        </div>
+
+        <!-- ADD-ONS -->
+        <div class="service-category">
+          <div class="service-cat-label"><em>+</em> Add-Ons</div>
+          <div class="chip-grid" style="grid-template-columns:1fr;">
+            <div class="chip" id="chip-pethair" onclick="togglePetHair(this)" style="border-style:dashed;">
               <div class="chip-check">✓</div>
-              <div class="chip-name">Pet Hair Removal</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                <div class="chip-name" style="margin-bottom:0">🐾 Pet Hair Removal</div>
+                <span style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--gold);border:1px dashed var(--gold);border-radius:3px;padding:1px 5px;">ADD-ON</span>
+              </div>
               <div class="chip-price" id="pethair-note">+$35 flat rate · requires Interior Deep Clean</div>
             </div>
           </div>
         </div>
+
         <div class="form-row full" style="margin-top:16px;margin-bottom:0">
           <div class="field"><label class="field-label">Additional Notes (optional)</label><textarea id="bk-notes" placeholder="Anything we should know about your vehicle..."></textarea></div>
         </div>
@@ -790,23 +821,18 @@
       <button class="btn-book" onclick="goToStep2()"><span class="btn-text">Next — Pick a Date →</span></button>
     </div>
 
-    <!-- PANEL 2: Calendar -->
+    <!-- PANEL 2: Available Dates -->
     <div class="panel" id="panel-2">
       <div class="bk-card">
         <div class="bk-card-title">03 — <span>Pick a Date &amp; Time</span></div>
-        <div class="cal-header">
-          <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
-          <div class="cal-month-title" id="cal-month-title"></div>
-          <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
-        </div>
-        <div class="cal-grid" id="cal-labels"></div>
-        <div class="cal-grid" id="cal-grid"></div>
-        <div id="time-picker" style="display:none">
-          <p class="time-section-label">Morning</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Select an available date below, then choose your preferred time.</p>
+        <div id="available-dates-list"></div>
+        <div id="time-picker" style="display:none;margin-top:20px;">
+          <p class="time-section-label">Available Times</p>
           <div class="time-grid" id="morning-slots"></div>
-          <p class="time-section-label">Afternoon</p>
           <div class="time-grid" id="afternoon-slots"></div>
         </div>
+        <p id="no-dates-msg" style="display:none;color:var(--muted);font-size:14px;text-align:center;padding:24px 0;">No available dates right now. Please check back soon or call us at <a href="tel:3155582509" style="color:var(--gold)">(315) 558-2509</a>.</p>
       </div>
       <button class="btn-book" onclick="goToStep3()"><span class="btn-text">Next — Confirm →</span></button>
       <button class="btn-back" onclick="goToStep(1)">← Back</button>
@@ -860,8 +886,8 @@ const SCHEDULE_API = '/.netlify/functions/schedule';
 
 const DEFAULT_SCHEDULE = {
   closedDates: [],
-  openTimes: ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM'],
-  blockedDates: [],
+  openTimes: [],           // Empty by default — admin must approve times before they appear
+  approvedDates: [],       // Admin-approved specific dates available for booking
   blockedTimesPerDate: {},
   bookings: [],
 };
@@ -965,6 +991,7 @@ async function openAdminPanel() {
   if (!SCHEDULE.closedDates) SCHEDULE.closedDates = [];
   if (!SCHEDULE.bookings) SCHEDULE.bookings = [];
   if (!SCHEDULE.blockedTimesPerDate) SCHEDULE.blockedTimesPerDate = {};
+  if (!SCHEDULE.approvedDates) SCHEDULE.approvedDates = {};
   renderAdminDays();
 }
 
@@ -1016,33 +1043,34 @@ function renderAdminDays() {
 // Tracks which date is open in the date manager
 let activeManagedDate = null;
 
-function renderAdminTimes() { /* global time grid removed — managed per-date now */ }
+function renderAdminTimes() { /* managed per-date */ }
+function blockSpecificDate() {}
+function renderBlockedDates() {}
+function unblockDate(d) {}
 
 function renderAdminDays() {
   const grid = document.getElementById('admin-day-grid');
   grid.innerHTML = '';
   const today = new Date(); today.setHours(0,0,0,0);
-  const closed = SCHEDULE.closedDates || [];
+  const approved = SCHEDULE.approvedDates || {};
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 1; i <= 10; i++) { // start at 1 — no same-day booking
     const date = new Date(today);
     date.setDate(today.getDate() + i);
     const dk = dateKey(date);
-    const isFullyClosed = closed.includes(dk);
-    const perDayBlocked = (SCHEDULE.blockedTimesPerDate || {})[dk] || [];
-    const hasPartialBlock = perDayBlocked.length > 0 && !isFullyClosed;
+    const approvedTimes = approved[dk] || [];
+    const isOpen = approvedTimes.length > 0;
     const isActive = activeManagedDate === dk;
 
-    const el = document.createElement('div');
-    el.className = 'day-toggle ' + (isFullyClosed ? 'closed' : 'open');
-    if (isActive) el.style.outline = '2px solid var(--gold-lt)';
-    if (hasPartialBlock) el.style.borderStyle = 'dashed';
-
     const dow = DAY_NAMES[date.getDay()];
-    const label = i === 0 ? 'Today' : (i === 1 ? 'Tomorrow' : dow);
+    const label = i === 1 ? 'Tomorrow' : dow;
+
+    const el = document.createElement('div');
+    el.className = 'day-toggle ' + (isOpen ? 'open' : 'closed');
+    if (isActive) el.style.outline = '2px solid var(--gold-lt)';
     el.innerHTML = `${label}<br><span style="font-size:10px;opacity:.7">${date.getMonth()+1}/${date.getDate()}</span>`;
-    if (isFullyClosed) el.innerHTML += `<br><span style="font-size:9px;color:var(--red);">CLOSED</span>`;
-    else if (hasPartialBlock) el.innerHTML += `<br><span style="font-size:9px;color:var(--gold);">${perDayBlocked.length} blocked</span>`;
+    if (isOpen) el.innerHTML += `<br><span style="font-size:9px;color:var(--green);">${approvedTimes.length} slot${approvedTimes.length>1?'s':''}</span>`;
+    else el.innerHTML += `<br><span style="font-size:9px;color:var(--red);">CLOSED</span>`;
 
     el.dataset.dk = dk;
     el.onclick = function() { openDateManager(this.dataset.dk); };
@@ -1052,22 +1080,30 @@ function renderAdminDays() {
 
 function openDateManager(dk) {
   activeManagedDate = dk;
-  renderAdminDays(); // re-render to show active outline
+  renderAdminDays();
 
   const manager = document.getElementById('date-manager');
   manager.style.display = 'block';
 
-  // Format date nicely
   const parts = dk.split('-');
   const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
   const label = d.toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
   document.getElementById('date-manager-title').textContent = label;
 
-  const isClosed = (SCHEDULE.closedDates || []).includes(dk);
-  const btn = document.getElementById('btn-block-full');
-  btn.textContent = isClosed ? '✓ Day is Blocked — Click to Reopen' : '🚫 Block Entire Day';
-  btn.style.background = isClosed ? 'var(--green)' : 'var(--red)';
+  const approved = SCHEDULE.approvedDates || {};
+  const approvedTimes = approved[dk] || [];
+  const isOpen = approvedTimes.length > 0;
 
+  const btn = document.getElementById('btn-block-full');
+  if (isOpen) {
+    btn.textContent = '🚫 Close This Day';
+    btn.style.background = 'var(--red)';
+  } else {
+    btn.textContent = '✓ Open This Day';
+    btn.style.background = 'var(--green)';
+  }
+
+  document.getElementById('time-approval-section').style.opacity = '1';
   renderPerDayTimeGrid(dk);
 }
 
@@ -1080,66 +1116,63 @@ function closeDateManager() {
 function toggleFullDayBlock() {
   const dk = activeManagedDate;
   if (!dk) return;
-  if (!SCHEDULE.closedDates) SCHEDULE.closedDates = [];
-  const idx = SCHEDULE.closedDates.indexOf(dk);
-  if (idx >= 0) {
-    SCHEDULE.closedDates.splice(idx, 1);
+  if (!SCHEDULE.approvedDates) SCHEDULE.approvedDates = {};
+  const approvedTimes = SCHEDULE.approvedDates[dk] || [];
+  if (approvedTimes.length > 0) {
+    // Close the day — remove all approved times
+    delete SCHEDULE.approvedDates[dk];
   } else {
-    SCHEDULE.closedDates.push(dk);
-    // Also clear any per-time blocks since day is fully closed
-    if (SCHEDULE.blockedTimesPerDate) delete SCHEDULE.blockedTimesPerDate[dk];
+    // Open the day with all times approved by default
+    SCHEDULE.approvedDates[dk] = [...ALL_TIMES];
   }
-  openDateManager(dk); // re-render manager
+  openDateManager(dk);
   renderAdminDays();
 }
 
 function renderPerDayTimeGrid(dateVal) {
   if (!dateVal) return;
   const grid = document.getElementById('per-day-slots-grid');
-  if (!SCHEDULE.blockedTimesPerDate) SCHEDULE.blockedTimesPerDate = {};
-  const alreadyBlocked = SCHEDULE.blockedTimesPerDate[dateVal] || [];
-  const isClosed = (SCHEDULE.closedDates || []).includes(dateVal);
+  if (!SCHEDULE.approvedDates) SCHEDULE.approvedDates = {};
+  const approvedTimes = SCHEDULE.approvedDates[dateVal] || [];
 
   grid.innerHTML = '';
   ALL_TIMES.forEach(t => {
-    const isPerDayBlocked = alreadyBlocked.includes(t);
+    const isApproved = approvedTimes.includes(t);
     const el = document.createElement('div');
-    el.className = 'time-toggle ' + (isPerDayBlocked || isClosed ? 'closed' : 'open');
-    if (isClosed) { el.style.opacity = '0.4'; el.title = 'Whole day blocked'; }
+    el.className = 'time-toggle ' + (isApproved ? 'open' : 'closed');
     el.textContent = t;
     el.dataset.time = t;
     el.dataset.date = dateVal;
-    if (!isClosed) {
-      el.onclick = function() {
-        const d = this.dataset.date;
-        const tm = this.dataset.time;
-        if (!SCHEDULE.blockedTimesPerDate[d]) SCHEDULE.blockedTimesPerDate[d] = [];
-        const idx = SCHEDULE.blockedTimesPerDate[d].indexOf(tm);
-        if (idx >= 0) {
-          SCHEDULE.blockedTimesPerDate[d].splice(idx, 1);
-          this.className = 'time-toggle open';
-        } else {
-          SCHEDULE.blockedTimesPerDate[d].push(tm);
-          this.className = 'time-toggle closed';
-        }
-        const count = SCHEDULE.blockedTimesPerDate[d].length;
-        document.getElementById('per-day-status').textContent =
-          count ? `${count} slot${count>1?'s':''} blocked — click Save to confirm.` : 'All slots open for this day.';
-        renderAdminDays();
-      };
-    }
+    el.onclick = function() {
+      const d = this.dataset.date;
+      const tm = this.dataset.time;
+      if (!SCHEDULE.approvedDates[d]) SCHEDULE.approvedDates[d] = [];
+      const idx = SCHEDULE.approvedDates[d].indexOf(tm);
+      if (idx >= 0) {
+        SCHEDULE.approvedDates[d].splice(idx, 1);
+        this.className = 'time-toggle closed';
+      } else {
+        SCHEDULE.approvedDates[d].push(tm);
+        this.className = 'time-toggle open';
+      }
+      const count = SCHEDULE.approvedDates[d].length;
+      document.getElementById('per-day-status').textContent =
+        count ? `${count} slot${count>1?'s':''} approved for ${dateVal} — click Save.` : 'No slots approved — day will appear closed.';
+
+      // Update open/close button
+      const btn = document.getElementById('btn-block-full');
+      if (count > 0) { btn.textContent = '🚫 Close This Day'; btn.style.background = 'var(--red)'; }
+      else { btn.textContent = '✓ Open This Day'; btn.style.background = 'var(--green)'; }
+
+      renderAdminDays();
+    };
     grid.appendChild(el);
   });
 
-  const count = alreadyBlocked.length;
-  document.getElementById('per-day-status').textContent = isClosed
-    ? 'Entire day is blocked.'
-    : (count ? `${count} slot${count>1?'s':''} currently blocked.` : 'All slots currently open.');
+  const count = approvedTimes.length;
+  document.getElementById('per-day-status').textContent =
+    count ? `${count} slot${count>1?'s':''} currently approved.` : 'No slots approved — day is closed to customers.';
 }
-
-function blockSpecificDate() {} // kept as no-op to avoid reference errors
-function renderBlockedDates() {}
-function unblockDate(d) {}
 
 // ── Tab switching ──
 async function switchAdminTab(tab, btn) {
@@ -1302,9 +1335,14 @@ async function saveAdminSettings() {
   const msg = document.getElementById('admin-save-msg');
   msg.textContent = 'Saving…';
   msg.style.color = 'var(--muted)';
-  // Auto-clean any closed dates that are now in the past
+  // Auto-clean any approved dates that are now in the past
   const todayKey = dateKey(new Date());
   SCHEDULE.closedDates = (SCHEDULE.closedDates || []).filter(d => d >= todayKey);
+  if (SCHEDULE.approvedDates) {
+    Object.keys(SCHEDULE.approvedDates).forEach(d => {
+      if (d < todayKey) delete SCHEDULE.approvedDates[d];
+    });
+  }
   const ok = await saveSchedule(SCHEDULE);
   if (ok) {
     msg.style.color = 'var(--green)';
@@ -1528,81 +1566,83 @@ function dateKey(date) {
 
 function isDateOpenByAdmin(date) {
   const dk = dateKey(date);
-  // Check if this specific date is in the closed list
-  const closed = SCHEDULE.closedDates || [];
-  return !closed.includes(dk);
+  // A date is only open if admin has approved at least one time slot for it
+  const approved = SCHEDULE.approvedDates || {};
+  return (approved[dk] || []).length > 0;
 }
 
 function isDateFullyBooked(date) {
   const dk = dateKey(date);
   const effectivelyUnavailable = getEffectivelyBookedSlots(dk);
-  const perDayBlocked = (SCHEDULE.blockedTimesPerDate || {})[dk] || [];
-  const available = SCHEDULE.openTimes.filter(t => !effectivelyUnavailable.has(t) && !perDayBlocked.includes(t));
+  const approvedForDay = ((SCHEDULE.approvedDates || {})[dk]) || [];
+  const available = approvedForDay.filter(t => !effectivelyUnavailable.has(t));
   return available.length === 0;
 }
 
 async function renderCalendar() {
   await loadSchedule();
-  const now = new Date(); now.setHours(0,0,0,0);
-  if (!calY) { calY = now.getFullYear(); calM = now.getMonth(); }
-  document.getElementById('cal-month-title').textContent = MONTHS[calM] + ' ' + calY;
-
-  // Day labels
-  const lblEl = document.getElementById('cal-labels');
-  lblEl.innerHTML = '';
-  DAYS.forEach(d => {
-    const el = document.createElement('div');
-    el.className = 'cal-lbl';
-    el.textContent = d;
-    lblEl.appendChild(el);
-  });
-
-  // Days grid
-  const grid = document.getElementById('cal-grid');
-  grid.innerHTML = '';
-  const firstDow  = new Date(calY, calM, 1).getDay();
-  const totalDays = new Date(calY, calM+1, 0).getDate();
-
-  for (let i=0; i<firstDow; i++) {
-    const e = document.createElement('div'); e.className='cal-day empty'; grid.appendChild(e);
-  }
-
-  for (let d=1; d<=totalDays; d++) {
-    const date = new Date(calY, calM, d);
-    const dow  = date.getDay();
-    const past = date <= now; // blocks today (no same-day bookings)
-    // Only allow bookings 1–9 days in advance
-    const maxDate = new Date(now); maxDate.setDate(now.getDate() + 9);
-    const tooFar = date > maxDate;
-    const adminClosed = !isDateOpenByAdmin(date);
-    const specificBlocked = SCHEDULE.blockedDates.includes(dateKey(date));
-    const fullyBooked = isDateFullyBooked(date);
-    const disabled = past || tooFar || adminClosed || specificBlocked || fullyBooked;
-    const today = date.getTime() === now.getTime();
-
-    const el = document.createElement('div');
-    let cls = 'cal-day';
-    if (disabled) cls += (adminClosed || specificBlocked || fullyBooked) ? ' admin-closed' : ' disabled';
-    if (today) cls += ' today';
-    if (BK.date && BK.date.getTime() === date.getTime()) cls += ' selected';
-    el.className = cls;
-    el.textContent = d;
-    if (fullyBooked) el.title = 'Fully booked';
-    if (!disabled) el.addEventListener('click', () => selectDate(date, el));
-    grid.appendChild(el);
-  }
-
-  document.getElementById('time-picker').style.display = 'none';
+  renderAvailableDates();
 }
 
-function selectDate(date, el) {
+function renderAvailableDates() {
+  const container = document.getElementById('available-dates-list');
+  const noMsg = document.getElementById('no-dates-msg');
+  container.innerHTML = '';
+  document.getElementById('time-picker').style.display = 'none';
+
+  const now = new Date(); now.setHours(0,0,0,0);
+  const approved = SCHEDULE.approvedDates || {};
+  const availableDays = [];
+
+  // Check next 10 days (skip today)
+  for (let i = 1; i <= 10; i++) {
+    const date = new Date(now);
+    date.setDate(now.getDate() + i);
+    const dk = dateKey(date);
+    const approvedTimes = approved[dk] || [];
+    if (!approvedTimes.length) continue;
+
+    // Filter out booked/buffered slots
+    const unavailable = getEffectivelyBookedSlots(dk);
+    const available = approvedTimes.filter(t => !unavailable.has(t));
+    if (!available.length) continue;
+
+    availableDays.push({ date, dk, available });
+  }
+
+  if (!availableDays.length) {
+    noMsg.style.display = 'block';
+    return;
+  }
+
+  noMsg.style.display = 'none';
+
+  availableDays.forEach(({ date, dk, available }) => {
+    const dateStr = date.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+    const btn = document.createElement('button');
+    btn.className = 'avail-date-btn' + (BK.date && dateKey(BK.date) === dk ? ' selected' : '');
+    btn.innerHTML = `
+      <div>
+        <div class="date-label">${dateStr}</div>
+        <div class="date-slots">${available.length} time slot${available.length>1?'s':''} available</div>
+      </div>
+      <span class="date-arrow">›</span>
+    `;
+    btn.onclick = () => selectDateFromList(date, dk, btn);
+    container.appendChild(btn);
+  });
+}
+
+function selectDateFromList(date, dk, btn) {
   BK.date = date;
   BK.time = null;
-  document.querySelectorAll('.cal-day').forEach(d => d.classList.remove('selected'));
-  el.classList.add('selected');
+  document.querySelectorAll('.avail-date-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
   renderTimeSlots(date);
   document.getElementById('time-picker').style.display = 'block';
 }
+
+function selectDate(date, el) { /* replaced by selectDateFromList */ }
 
 // All time slots in order for buffer calculation
 const ALL_TIME_SLOTS = ['8:00 AM','9:00 AM','10:00 AM','11:00 AM','12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM'];
@@ -1636,17 +1676,16 @@ function renderTimeSlots(date) {
   const morning   = ['8:00 AM','9:00 AM','10:00 AM','11:00 AM'];
   const afternoon = ['12:00 PM','1:00 PM','2:00 PM','3:00 PM','4:00 PM'];
 
-  const perDayBlocked = (SCHEDULE.blockedTimesPerDate || {})[dk] || [];
+  const approvedForDay = ((SCHEDULE.approvedDates || {})[dk]) || [];
 
   function renderGroup(times, containerId) {
     const container = document.getElementById(containerId);
     container.innerHTML = '';
     times.forEach(t => {
-      const isAdminOpen = SCHEDULE.openTimes.includes(t);
+      const isApproved  = approvedForDay.includes(t);
       const isBooked    = unavailable.has(t);
-      const isDayBlocked = perDayBlocked.includes(t);
-      const disabled    = !isAdminOpen || isBooked || isDayBlocked;
-      if (disabled) return; // Don't show unavailable/buffered/per-day blocked slots
+      const disabled    = !isApproved || isBooked;
+      if (disabled) return; // Only show admin-approved, not-yet-booked slots
       const el = document.createElement('div');
       el.className = 'time-slot';
       el.textContent = t;
@@ -1669,12 +1708,7 @@ function selectTime(el) {
   BK.time = el.dataset.time;
 }
 
-function changeMonth(dir) {
-  calM += dir;
-  if (calM > 11) { calM=0; calY++; }
-  if (calM < 0)  { calM=11; calY--; }
-  renderCalendar();
-}
+function changeMonth(dir) { /* calendar replaced by list view */ }
 
 // ═══════════════════════════════════════════════════
 //  SUMMARY
