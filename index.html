@@ -1804,7 +1804,7 @@ function buildSummary() {
     <tr><td style="vertical-align:top;padding-bottom:4px">Services</td><td></td></tr>
     ${serviceRows}
     <tr><td style="padding-top:12px;font-weight:700;color:var(--white)">Estimated Total</td><td style="padding-top:12px;font-weight:700;font-size:18px;color:var(--gold)">$${total}</td></tr>
-    <tr><td style="color:var(--muted);font-size:12px;padding-bottom:8px" colspan="2">Balance due at time of service — cash, card, Venmo, or CashApp</td></tr>
+    <tr><td style="color:var(--muted);font-size:12px;padding-bottom:8px" colspan="2">Full balance due at time of service — cash, card, Venmo, or CashApp</td></tr>
   `;
 }
 
@@ -1851,7 +1851,7 @@ function showSuccess() {
     <div class="crow"><span>Date</span><span>${dateStr}</span></div>
     <div class="crow"><span>Time</span><span>${BK.time}</span></div>
     <div class="crow"><span>Vehicle</span><span>${BK.vehicle}</span></div>
-    <div class="crow"><span>Deposit Paid</span><span>$10.00 ✓</span></div>
+
   `;
   document.getElementById('contact').scrollIntoView({ behavior:'smooth', block:'start' });
 }
