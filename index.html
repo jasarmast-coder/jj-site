@@ -1714,17 +1714,35 @@ function getBufferHours(services) {
 }
 
 function getEffectivelyBookedSlots(dk) {
-  // Returns a Set of time strings that are unavailable due to bookings + buffer
+  // Returns a Set of time strings unavailable due to bookings + forward AND backward buffers
   const booked = new Set();
   const bookingsOnDay = (SCHEDULE.bookings || []).filter(b => b.date === dk);
+
   bookingsOnDay.forEach(b => {
     const startIdx = ALL_TIME_SLOTS.indexOf(b.time);
     if (startIdx === -1) return;
     const bufHours = getBufferHours(b.services || '');
+
+    // Block forward — the booking itself + time needed to complete it
     for (let i = startIdx; i < Math.min(startIdx + bufHours, ALL_TIME_SLOTS.length); i++) {
       booked.add(ALL_TIME_SLOTS[i]);
     }
+
+    // Block backward — can't start a new job if it would overlap with this one
+    // e.g. if booking is at 12pm and takes 3hrs, can't book 11am (would conflict at 12)
+    // or 10am (2hr job would end at 12), or 9am (3hr job would end at 12)
+    for (let i = 1; i < bufHours; i++) {
+      const prevIdx = startIdx - i;
+      if (prevIdx >= 0) {
+        // Only block backward if a job starting there would overlap
+        // A job starting prevIdx slots before would need bufHours to finish
+        // It overlaps if prevIdx + its own duration > startIdx
+        // We use the same buffer duration as a conservative estimate
+        booked.add(ALL_TIME_SLOTS[prevIdx]);
+      }
+    }
   });
+
   return booked;
 }
 
