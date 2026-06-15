@@ -1308,44 +1308,67 @@ function renderPerDayTimeGrid(dateVal) {
   const grid = document.getElementById('per-day-slots-grid');
   ensureApprovedDates();
   const approvedTimes = SCHEDULE.approvedDates[dateVal] || [];
+  const bookedSlots   = getEffectivelyBookedSlots(dateVal); // slots taken by bookings + buffer
+
+  // Find which bookings are on this day so we can show who booked each slot
+  const bookingsOnDay = (SCHEDULE.bookings || []).filter(b => b.date === dateVal);
 
   grid.innerHTML = '';
   ALL_TIMES.forEach(t => {
     const isApproved = approvedTimes.includes(t);
+    const isBooked   = bookedSlots.has(t);
+
+    // Find if this exact slot has a booking on it
+    const exactBooking = bookingsOnDay.find(b => b.time === t);
+
     const el = document.createElement('div');
-    el.className = 'time-toggle ' + (isApproved ? 'open' : 'closed');
-    el.textContent = t;
-    el.dataset.time = t;
-    el.dataset.date = dateVal;
-    el.onclick = function() {
-      const d = this.dataset.date;
-      const tm = this.dataset.time;
-      if (!SCHEDULE.approvedDates[d]) SCHEDULE.approvedDates[d] = [];
-      const idx = SCHEDULE.approvedDates[d].indexOf(tm);
-      if (idx >= 0) {
-        SCHEDULE.approvedDates[d].splice(idx, 1);
-        this.className = 'time-toggle closed';
+
+    if (isBooked) {
+      // Show as booked — not clickable, distinct style
+      el.className = 'time-toggle closed';
+      el.style.cssText = 'border-color:var(--red);opacity:1;cursor:default;position:relative;';
+      if (exactBooking) {
+        const shortName = exactBooking.name.split(' ')[0];
+        el.innerHTML = `${t}<br><span style="font-size:9px;color:var(--red);font-weight:700;">📌 ${shortName}</span>`;
       } else {
-        SCHEDULE.approvedDates[d].push(tm);
-        this.className = 'time-toggle open';
+        el.innerHTML = `${t}<br><span style="font-size:9px;color:var(--red);">buffer</span>`;
       }
-      const count = SCHEDULE.approvedDates[d].length;
-      document.getElementById('per-day-status').textContent =
-        count ? `${count} slot${count>1?'s':''} approved for ${dateVal} — click Save.` : 'No slots approved — day will appear closed.';
-
-      // Update open/close button
-      const btn = document.getElementById('btn-block-full');
-      if (count > 0) { btn.textContent = '🚫 Close This Day'; btn.style.background = 'var(--red)'; }
-      else { btn.textContent = '✓ Open This Day'; btn.style.background = 'var(--green)'; }
-
-      renderAdminDays();
-    };
+      el.title = exactBooking
+        ? `Booked: ${exactBooking.name} — ${exactBooking.services}`
+        : 'Blocked by buffer time';
+    } else {
+      el.className = 'time-toggle ' + (isApproved ? 'open' : 'closed');
+      el.textContent = t;
+      el.dataset.time = t;
+      el.dataset.date = dateVal;
+      el.onclick = function() {
+        const d = this.dataset.date;
+        const tm = this.dataset.time;
+        if (!SCHEDULE.approvedDates[d]) SCHEDULE.approvedDates[d] = [];
+        const idx = SCHEDULE.approvedDates[d].indexOf(tm);
+        if (idx >= 0) {
+          SCHEDULE.approvedDates[d].splice(idx, 1);
+          this.className = 'time-toggle closed';
+        } else {
+          SCHEDULE.approvedDates[d].push(tm);
+          this.className = 'time-toggle open';
+        }
+        const count = SCHEDULE.approvedDates[d].length;
+        document.getElementById('per-day-status').textContent =
+          count ? `${count} slot${count>1?'s':''} approved — click Save.` : 'No slots approved — day will appear closed.';
+        const btn = document.getElementById('btn-block-full');
+        if (count > 0) { btn.textContent = '🚫 Close This Day'; btn.style.background = 'var(--red)'; }
+        else { btn.textContent = '✓ Open This Day'; btn.style.background = 'var(--green)'; }
+        renderAdminDays();
+      };
+    }
     grid.appendChild(el);
   });
 
   const count = approvedTimes.length;
+  const bookedCount = bookingsOnDay.length;
   document.getElementById('per-day-status').textContent =
-    count ? `${count} slot${count>1?'s':''} currently approved.` : 'No slots approved — day is closed to customers.';
+    `${count} slot${count!==1?'s':''} approved · ${bookedCount} booking${bookedCount!==1?'s':''} on this day.`;
 }
 
 // ── Tab switching ──
@@ -1362,10 +1385,14 @@ async function switchAdminTab(tab, btn) {
     renderCustomers();
   }
   if (tab === 'manual') {
-    // Set today's date as default
-    const today = new Date();
-    today.setDate(today.getDate() + 1);
-    document.getElementById('mb-date').value = dateKey(today);
+    await loadSchedule(); // make sure schedule is fresh so time slots are accurate
+    // Reset form state
+    document.getElementById('mb-time-section').style.display = 'none';
+    document.getElementById('mb-auto-total').textContent = '$0';
+    document.getElementById('mb-override').checked = false;
+    ['mb-chip-wash','mb-chip-ceramic','mb-chip-interior','mb-chip-pethair']
+      .forEach(id => { const el = document.getElementById(id); if(el) el.classList.remove('selected'); });
+    document.getElementById('mb-date').value = '';
   }
 }
 
@@ -1519,25 +1546,35 @@ function mbRenderTimeSlots() {
   document.getElementById('mb-time-section').style.display = 'block';
   document.getElementById('mb-time').value = '';
 
-  const override = document.getElementById('mb-override').checked;
-  const bufHours = mbGetBufferHours();
-  const unavailable = getEffectivelyBookedSlots(dateVal);
-  const services = mbGetSelectedServices();
+  const override     = document.getElementById('mb-override').checked;
+  const bufHours     = mbGetBufferHours();
+  const unavailable  = getEffectivelyBookedSlots(dateVal);
+  const approvedForDay = ((SCHEDULE.approvedDates || {})[dateVal]) || [];
   const slotsContainer = document.getElementById('mb-time-slots');
-  const note = document.getElementById('mb-time-note');
+  const note           = document.getElementById('mb-time-note');
   slotsContainer.innerHTML = '';
 
   let shownCount = 0;
   ALL_TIME_SLOTS.forEach(t => {
-    const isUnavailable = unavailable.has(t);
-    if (!override && isUnavailable) return; // skip conflicting slots unless override
+    const isBooked      = unavailable.has(t);
+    const isApproved    = approvedForDay.includes(t);
+    const isUnavailable = isBooked || (!isApproved && !override);
+
+    // In normal mode: skip non-approved AND booked slots
+    // In override mode: show everything, colour-coded
+    if (!override && isUnavailable) return;
 
     const btn = document.createElement('div');
-    btn.className = 'time-slot' + (isUnavailable ? '' : '');
-    btn.style.cssText = isUnavailable
-      ? 'border-color:var(--red);color:var(--red);opacity:.6;cursor:pointer;'
-      : '';
-    btn.textContent = t + (isUnavailable ? ' ⚠' : '');
+    btn.className = 'time-slot';
+    if (isBooked) {
+      btn.style.cssText = 'border-color:var(--red);color:var(--red);opacity:.7;cursor:pointer;';
+      btn.textContent = t + ' ⚠ booked';
+    } else if (!isApproved) {
+      btn.style.cssText = 'border-color:#444;color:#555;cursor:pointer;';
+      btn.textContent = t + ' (not approved)';
+    } else {
+      btn.textContent = t;
+    }
     btn.dataset.time = t;
     btn.onclick = function() {
       document.querySelectorAll('#mb-time-slots .time-slot').forEach(b => b.classList.remove('selected'));
@@ -1549,13 +1586,13 @@ function mbRenderTimeSlots() {
   });
 
   if (shownCount === 0) {
-    slotsContainer.innerHTML = '<span style="font-size:13px;color:var(--red);">No available slots on this date. Use the override checkbox to book anyway.</span>';
+    slotsContainer.innerHTML = '<span style="font-size:13px;color:var(--red);">No open slots on this date. Check override to force a booking.</span>';
     note.textContent = '';
   } else if (override) {
-    note.textContent = '⚠ Override active — red slots conflict with existing bookings.';
+    note.textContent = '⚠ Override on — red = booked, grey = not approved. You can still select any slot.';
     note.style.color = 'var(--red)';
   } else {
-    note.textContent = `Showing slots with ${bufHours}hr buffer. Check override to ignore conflicts.`;
+    note.textContent = `Only showing approved, open slots with ${bufHours}hr buffer accounted for.`;
     note.style.color = 'var(--muted)';
   }
 }
