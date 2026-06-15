@@ -534,7 +534,9 @@
     <!-- TAB 3: Manual Booking -->
     <div class="admin-tab-panel" id="admin-tab-manual">
       <div class="admin-section-title" style="margin-top:0">Add a Manual Booking</div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Use this to book a customer who called or texted instead of using the website.</p>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">Book a customer who called or texted. Select their services first — available times will update automatically.</p>
+
+      <!-- Customer info -->
       <div class="form-row">
         <div class="field"><label class="field-label">First Name</label><input type="text" id="mb-fname" placeholder="John" /></div>
         <div class="field"><label class="field-label">Last Name</label><input type="text" id="mb-lname" placeholder="Smith" /></div>
@@ -544,35 +546,69 @@
         <div class="field"><label class="field-label">Vehicle</label><input type="text" id="mb-vehicle" placeholder="2020 Honda Accord" /></div>
       </div>
       <div class="form-row">
-        <div class="field"><label class="field-label">Date</label><input type="date" id="mb-date" /></div>
-        <div class="field"><label class="field-label">Time</label>
-          <select id="mb-time">
-            <option value="">Select time…</option>
-            <option>8:00 AM</option><option>9:00 AM</option><option>10:00 AM</option>
-            <option>11:00 AM</option><option>12:00 PM</option><option>1:00 PM</option>
-            <option>2:00 PM</option><option>3:00 PM</option><option>4:00 PM</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row full">
-        <div class="field"><label class="field-label">Address</label><input type="text" id="mb-address" placeholder="123 Main St, Syracuse, NY" /></div>
-      </div>
-      <div class="form-row full">
-        <div class="field"><label class="field-label">Services</label><input type="text" id="mb-services" placeholder="e.g. Basic Wash, Interior Deep Clean" /></div>
-      </div>
-      <div class="form-row">
         <div class="field"><label class="field-label">Vehicle Type</label>
-          <select id="mb-vtype">
+          <select id="mb-vtype" onchange="mbUpdateTotal()">
             <option value="car">Car / Sedan</option>
             <option value="suv">SUV / Truck</option>
           </select>
         </div>
-        <div class="field"><label class="field-label">Total Price ($)</label><input type="number" id="mb-total" placeholder="125" /></div>
+        <div class="field"><label class="field-label">Address</label><input type="text" id="mb-address" placeholder="123 Main St" /></div>
       </div>
-      <div class="form-row full">
-        <div class="field"><label class="field-label">Notes</label><textarea id="mb-notes" placeholder="Anything to note about this booking…" style="min-height:70px;"></textarea></div>
+
+      <!-- Service selection -->
+      <div class="admin-section-title" style="font-size:15px;margin-top:20px;">Services</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">
+        <div class="chip" id="mb-chip-wash" onclick="mbToggleChip(this,'Basic Wash'); mbUpdateTotal(); mbRenderTimeSlots()">
+          <div class="chip-check">✓</div>
+          <div class="chip-name" style="font-size:13px;">Basic Wash</div>
+          <div class="chip-price" id="mb-price-wash">Cars $65 · SUVs $75</div>
+        </div>
+        <div class="chip" id="mb-chip-ceramic" onclick="mbToggleChip(this,'Ceramic Package'); mbUpdateTotal(); mbRenderTimeSlots()">
+          <div class="chip-check">✓</div>
+          <div class="chip-name" style="font-size:13px;">Ceramic Package <span style="font-size:9px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:1px 4px;">TIER 2</span></div>
+          <div class="chip-price" id="mb-price-ceramic">Cars $150 · SUVs $170</div>
+        </div>
+        <div class="chip" id="mb-chip-interior" onclick="mbToggleChip(this,'Interior Deep Clean'); mbUpdateTotal(); mbRenderTimeSlots()">
+          <div class="chip-check">✓</div>
+          <div class="chip-name" style="font-size:13px;">Interior Deep Clean</div>
+          <div class="chip-price" id="mb-price-interior">Cars $125 · SUVs $145</div>
+        </div>
+        <div class="chip" id="mb-chip-pethair" onclick="mbToggleChip(this,'Pet Hair Removal'); mbUpdateTotal(); mbRenderTimeSlots()">
+          <div class="chip-check">✓</div>
+          <div class="chip-name" style="font-size:13px;">Pet Hair Removal</div>
+          <div class="chip-price">+$35</div>
+        </div>
       </div>
-      <button class="btn-admin-action" onclick="saveManualBooking()">✓ Add Booking</button>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Auto-calculated total: <strong id="mb-auto-total" style="color:var(--gold);">$0</strong></p>
+      <div class="form-row">
+        <div class="field"><label class="field-label">Override Total ($) <span style="color:var(--muted);font-size:10px;">optional</span></label><input type="number" id="mb-total" placeholder="Leave blank to use auto total" /></div>
+      </div>
+
+      <!-- Date + Time -->
+      <div class="admin-section-title" style="font-size:15px;margin-top:20px;">Date & Time</div>
+      <div class="form-row">
+        <div class="field"><label class="field-label">Date</label><input type="date" id="mb-date" onchange="mbRenderTimeSlots()" /></div>
+      </div>
+
+      <!-- Smart time picker -->
+      <div id="mb-time-section" style="display:none;">
+        <label class="field-label" style="display:block;margin-bottom:8px;">Available Times</label>
+        <div id="mb-time-slots" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+        <input type="hidden" id="mb-time" />
+        <p id="mb-time-note" style="font-size:12px;color:var(--muted);margin-bottom:4px;"></p>
+
+        <!-- Override toggle -->
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px;font-size:13px;color:var(--muted);">
+          <input type="checkbox" id="mb-override" onchange="mbRenderTimeSlots()" style="width:auto;padding:0;" />
+          Override — show all times regardless of conflicts
+        </label>
+      </div>
+
+      <div class="form-row full" style="margin-top:16px;">
+        <div class="field"><label class="field-label">Notes</label><textarea id="mb-notes" placeholder="Anything to note…" style="min-height:60px;"></textarea></div>
+      </div>
+
+      <button class="btn-admin-action" onclick="saveManualBooking()" style="margin-top:12px;">✓ Add Booking</button>
       <p id="mb-msg" style="text-align:center;font-size:13px;margin-top:10px;min-height:18px;"></p>
     </div><!-- /manual tab -->
 
@@ -1439,6 +1475,91 @@ async function cancelBooking(index) {
 // ═══════════════════════════════════════════════════
 //  MANUAL BOOKING
 // ═══════════════════════════════════════════════════
+// ── Manual booking helpers ────────────────────────────────────────
+const MB_PRICES = {
+  'mb-chip-wash':     { label:'Basic Wash',         car:65,  suv:75,  flat:false },
+  'mb-chip-ceramic':  { label:'Ceramic Package',     car:150, suv:170, flat:false },
+  'mb-chip-interior': { label:'Interior Deep Clean', car:125, suv:145, flat:false },
+  'mb-chip-pethair':  { label:'Pet Hair Removal',    car:35,  suv:35,  flat:true  },
+};
+
+function mbToggleChip(el, _) { el.classList.toggle('selected'); }
+
+function mbGetSelectedServices() {
+  return Object.entries(MB_PRICES)
+    .filter(([id]) => document.getElementById(id) && document.getElementById(id).classList.contains('selected'))
+    .map(([, s]) => s.label);
+}
+
+function mbGetBufferHours() {
+  const hasExt = document.getElementById('mb-chip-wash').classList.contains('selected') ||
+                 document.getElementById('mb-chip-ceramic').classList.contains('selected');
+  const hasInt = document.getElementById('mb-chip-interior').classList.contains('selected');
+  if (hasExt && hasInt) return 3;
+  if (hasExt || hasInt) return 2;
+  return 2; // default
+}
+
+function mbUpdateTotal() {
+  const vtype = document.getElementById('mb-vtype').value;
+  let total = 0;
+  Object.entries(MB_PRICES).forEach(([id, s]) => {
+    const el = document.getElementById(id);
+    if (el && el.classList.contains('selected')) {
+      total += s.flat ? s.car : (vtype === 'suv' ? s.suv : s.car);
+    }
+  });
+  document.getElementById('mb-auto-total').textContent = '$' + total;
+}
+
+function mbRenderTimeSlots() {
+  const dateVal = document.getElementById('mb-date').value;
+  if (!dateVal) return;
+
+  document.getElementById('mb-time-section').style.display = 'block';
+  document.getElementById('mb-time').value = '';
+
+  const override = document.getElementById('mb-override').checked;
+  const bufHours = mbGetBufferHours();
+  const unavailable = getEffectivelyBookedSlots(dateVal);
+  const services = mbGetSelectedServices();
+  const slotsContainer = document.getElementById('mb-time-slots');
+  const note = document.getElementById('mb-time-note');
+  slotsContainer.innerHTML = '';
+
+  let shownCount = 0;
+  ALL_TIME_SLOTS.forEach(t => {
+    const isUnavailable = unavailable.has(t);
+    if (!override && isUnavailable) return; // skip conflicting slots unless override
+
+    const btn = document.createElement('div');
+    btn.className = 'time-slot' + (isUnavailable ? '' : '');
+    btn.style.cssText = isUnavailable
+      ? 'border-color:var(--red);color:var(--red);opacity:.6;cursor:pointer;'
+      : '';
+    btn.textContent = t + (isUnavailable ? ' ⚠' : '');
+    btn.dataset.time = t;
+    btn.onclick = function() {
+      document.querySelectorAll('#mb-time-slots .time-slot').forEach(b => b.classList.remove('selected'));
+      this.classList.add('selected');
+      document.getElementById('mb-time').value = this.dataset.time;
+    };
+    slotsContainer.appendChild(btn);
+    shownCount++;
+  });
+
+  if (shownCount === 0) {
+    slotsContainer.innerHTML = '<span style="font-size:13px;color:var(--red);">No available slots on this date. Use the override checkbox to book anyway.</span>';
+    note.textContent = '';
+  } else if (override) {
+    note.textContent = '⚠ Override active — red slots conflict with existing bookings.';
+    note.style.color = 'var(--red)';
+  } else {
+    note.textContent = `Showing slots with ${bufHours}hr buffer. Check override to ignore conflicts.`;
+    note.style.color = 'var(--muted)';
+  }
+}
+
 async function saveManualBooking() {
   const fname   = document.getElementById('mb-fname').value.trim();
   const lname   = document.getElementById('mb-lname').value.trim();
@@ -1447,15 +1568,32 @@ async function saveManualBooking() {
   const date    = document.getElementById('mb-date').value;
   const time    = document.getElementById('mb-time').value;
   const address = document.getElementById('mb-address').value.trim();
-  const services= document.getElementById('mb-services').value.trim();
   const vtype   = document.getElementById('mb-vtype').value;
-  const total   = document.getElementById('mb-total').value.trim();
   const notes   = document.getElementById('mb-notes').value.trim();
   const msg     = document.getElementById('mb-msg');
+  const services = mbGetSelectedServices();
 
-  if (!fname||!lname||!phone||!date||!time||!services) {
+  // Calculate total
+  let total = document.getElementById('mb-total').value.trim();
+  if (!total) {
+    let autoTotal = 0;
+    Object.entries(MB_PRICES).forEach(([id, s]) => {
+      const el = document.getElementById(id);
+      if (el && el.classList.contains('selected')) {
+        autoTotal += s.flat ? s.car : (vtype === 'suv' ? s.suv : s.car);
+      }
+    });
+    total = autoTotal > 0 ? String(autoTotal) : '';
+  }
+
+  if (!fname || !lname || !phone || !date || !time) {
     msg.style.color = 'var(--red)';
-    msg.textContent = 'Please fill in name, phone, date, time and services.';
+    msg.textContent = 'Please fill in name, phone, date and select a time.';
+    return;
+  }
+  if (!services.length) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Please select at least one service.';
     return;
   }
 
@@ -1464,20 +1602,26 @@ async function saveManualBooking() {
   SCHEDULE.bookings.push({
     date, time,
     name:    `${fname} ${lname}`,
-    phone, vehicle, vtype, address, services,
-    total:   total || '',
-    notes:   notes || '',
-    manual:  true
+    phone, vehicle, vtype, address,
+    services: services.join(', '),
+    total, notes,
+    manual: true
   });
 
   const ok = await saveSchedule(SCHEDULE);
   if (ok) {
     msg.style.color = 'var(--green)';
-    msg.textContent = `✓ Booking added for ${fname} ${lname} on ${date} at ${time}.`;
+    msg.textContent = `✓ Booked ${fname} ${lname} on ${date} at ${time}.`;
     // Clear form
-    ['mb-fname','mb-lname','mb-phone','mb-vehicle','mb-address','mb-services','mb-total','mb-notes']
+    ['mb-fname','mb-lname','mb-phone','mb-vehicle','mb-address','mb-total','mb-notes']
       .forEach(id => document.getElementById(id).value = '');
+    document.getElementById('mb-date').value = '';
     document.getElementById('mb-time').value = '';
+    document.getElementById('mb-time-section').style.display = 'none';
+    document.getElementById('mb-auto-total').textContent = '$0';
+    document.getElementById('mb-override').checked = false;
+    ['mb-chip-wash','mb-chip-ceramic','mb-chip-interior','mb-chip-pethair']
+      .forEach(id => document.getElementById(id).classList.remove('selected'));
   } else {
     msg.style.color = 'var(--red)';
     msg.textContent = '⚠ Could not save — check your connection.';
@@ -2001,23 +2145,23 @@ function getEffectivelyBookedSlots(dk) {
     if (startIdx === -1) return;
     const bufHours = getBufferHours(b.services || '');
 
-    // Block forward — the booking itself + time needed to complete it
+    // Block forward — the slot itself + every slot needed to complete the job
+    // e.g. booked at 4pm for 3hrs → block 4pm, 5pm, 6pm (even if off-list)
     for (let i = startIdx; i < Math.min(startIdx + bufHours, ALL_TIME_SLOTS.length); i++) {
       booked.add(ALL_TIME_SLOTS[i]);
     }
 
-    // Block backward — can't start a new job if it would overlap with this one
-    // e.g. if booking is at 12pm and takes 3hrs, can't book 11am (would conflict at 12)
-    // or 10am (2hr job would end at 12), or 9am (3hr job would end at 12)
-    for (let i = 1; i < bufHours; i++) {
-      const prevIdx = startIdx - i;
-      if (prevIdx >= 0) {
-        // Only block backward if a job starting there would overlap
-        // A job starting prevIdx slots before would need bufHours to finish
-        // It overlaps if prevIdx + its own duration > startIdx
-        // We use the same buffer duration as a conservative estimate
-        booked.add(ALL_TIME_SLOTS[prevIdx]);
-      }
+    // Block backward — any slot where starting a new job would still be running
+    // when this booking begins.
+    // Logic: a new job at slot X takes bufHours to finish.
+    // It conflicts if X + bufHours > startIdx, i.e. X > startIdx - bufHours
+    // So block all slots from (startIdx - bufHours + 1) up to (startIdx - 1)
+    // Example: booked at 4pm (idx 8), bufHours=3
+    //   Block back: idx 8-3+1=6 (2pm), 7 (3pm) → 2pm and 3pm blocked
+    //   1pm (idx 5): 5+3=8 which equals startIdx, meaning job ends exactly at 4pm
+    //   which still conflicts, so block idx >= startIdx - bufHours + 1
+    for (let i = startIdx - bufHours + 1; i < startIdx; i++) {
+      if (i >= 0) booked.add(ALL_TIME_SLOTS[i]);
     }
   });
 
