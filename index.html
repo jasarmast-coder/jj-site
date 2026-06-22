@@ -549,7 +549,8 @@
         <div class="field"><label class="field-label">Vehicle Type</label>
           <select id="mb-vtype" onchange="mbUpdateTotal()">
             <option value="car">Car / Sedan</option>
-            <option value="suv">SUV / Truck</option>
+            <option value="truck">Truck</option>
+            <option value="suv">SUV / Van</option>
           </select>
         </div>
         <div class="field"><label class="field-label">Address</label><input type="text" id="mb-address" placeholder="123 Main St" /></div>
@@ -561,17 +562,17 @@
         <div class="chip" id="mb-chip-wash" onclick="mbToggleChip(this,'Basic Wash'); mbUpdateTotal(); mbRenderTimeSlots()">
           <div class="chip-check">✓</div>
           <div class="chip-name" style="font-size:13px;">Basic Wash</div>
-          <div class="chip-price" id="mb-price-wash">Cars $65 · SUVs $75</div>
+          <div class="chip-price" id="mb-price-wash">Cars $65 · Trucks/SUVs $75</div>
         </div>
         <div class="chip" id="mb-chip-ceramic" onclick="mbToggleChip(this,'Ceramic Package'); mbUpdateTotal(); mbRenderTimeSlots()">
           <div class="chip-check">✓</div>
           <div class="chip-name" style="font-size:13px;">Ceramic Package <span style="font-size:9px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:1px 4px;">TIER 2</span></div>
-          <div class="chip-price" id="mb-price-ceramic">Cars $150 · SUVs $170</div>
+          <div class="chip-price" id="mb-price-ceramic">Cars $150 · Trucks/SUVs $170</div>
         </div>
         <div class="chip" id="mb-chip-interior" onclick="mbToggleChip(this,'Interior Deep Clean'); mbUpdateTotal(); mbRenderTimeSlots()">
           <div class="chip-check">✓</div>
           <div class="chip-name" style="font-size:13px;">Interior Deep Clean</div>
-          <div class="chip-price" id="mb-price-interior">Cars $125 · SUVs $145</div>
+          <div class="chip-price" id="mb-price-interior">Cars/Trucks $125 · SUVs $145</div>
         </div>
         <div class="chip" id="mb-chip-pethair" onclick="mbToggleChip(this,'Pet Hair Removal'); mbUpdateTotal(); mbRenderTimeSlots()">
           <div class="chip-check">✓</div>
@@ -872,7 +873,8 @@
           <div class="field"><label class="field-label">Vehicle Type</label>
             <select id="bk-vtype" onchange="updateChipPrices()">
               <option value="car">Car / Sedan / Coupe</option>
-              <option value="suv">SUV / Truck / Van</option>
+              <option value="truck">Truck</option>
+              <option value="suv">SUV / Van</option>
             </select>
           </div>
         </div>
@@ -899,7 +901,7 @@
                 <div class="chip-name" style="margin-bottom:0">Basic Wash</div>
                 <span style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);border:1px solid var(--border);border-radius:3px;padding:1px 5px;">TIER 1</span>
               </div>
-              <div class="chip-price" id="price-wash">Cars $65 · SUVs $75</div>
+              <div class="chip-price" id="price-wash">$65</div>
               <p class="chip-note">Foam bath · graphite sealant · tire shine</p>
             </div>
             <div class="chip" id="chip-ceramic" onclick="toggleChip(this); updateChipPrices()">
@@ -908,7 +910,7 @@
                 <div class="chip-name" style="margin-bottom:0">Ceramic Package</div>
                 <span style="font-size:9px;font-weight:700;letter-spacing:1px;color:var(--gold);border:1px solid var(--gold);border-radius:3px;padding:1px 5px;">TIER 2</span>
               </div>
-              <div class="chip-price" id="price-ceramic">Cars $150 · SUVs $170</div>
+              <div class="chip-price" id="price-ceramic">$150</div>
               <p class="chip-note">Includes Basic Wash + 6-month ceramic coating</p>
             </div>
           </div>
@@ -1504,10 +1506,10 @@ async function cancelBooking(index) {
 // ═══════════════════════════════════════════════════
 // ── Manual booking helpers ────────────────────────────────────────
 const MB_PRICES = {
-  'mb-chip-wash':     { label:'Basic Wash',         car:65,  suv:75,  flat:false },
-  'mb-chip-ceramic':  { label:'Ceramic Package',     car:150, suv:170, flat:false },
-  'mb-chip-interior': { label:'Interior Deep Clean', car:125, suv:145, flat:false },
-  'mb-chip-pethair':  { label:'Pet Hair Removal',    car:35,  suv:35,  flat:true  },
+  'mb-chip-wash':     { label:'Basic Wash',         car:65,  truck:75,  suv:75,  flat:false },
+  'mb-chip-ceramic':  { label:'Ceramic Package',     car:150, truck:170, suv:170, flat:false },
+  'mb-chip-interior': { label:'Interior Deep Clean', car:125, truck:125, suv:145, flat:false },
+  'mb-chip-pethair':  { label:'Pet Hair Removal',    car:35,  truck:35,  suv:35,  flat:true  },
 };
 
 function mbToggleChip(el, _) { el.classList.toggle('selected'); }
@@ -1533,7 +1535,7 @@ function mbUpdateTotal() {
   Object.entries(MB_PRICES).forEach(([id, s]) => {
     const el = document.getElementById(id);
     if (el && el.classList.contains('selected')) {
-      total += s.flat ? s.car : (vtype === 'suv' ? s.suv : s.car);
+      total += s.flat ? s.car : (s[vtype] !== undefined ? s[vtype] : s.car);
     }
   });
   document.getElementById('mb-auto-total').textContent = '$' + total;
@@ -1617,7 +1619,7 @@ async function saveManualBooking() {
     Object.entries(MB_PRICES).forEach(([id, s]) => {
       const el = document.getElementById(id);
       if (el && el.classList.contains('selected')) {
-        autoTotal += s.flat ? s.car : (vtype === 'suv' ? s.suv : s.car);
+        autoTotal += s.flat ? s.car : (s[vtype] !== undefined ? s[vtype] : s.car);
       }
     });
     total = autoTotal > 0 ? String(autoTotal) : '';
@@ -1875,7 +1877,7 @@ async function saveAdminSettings() {
 //  SERVICE CHIPS (FIXED)
 // ═══════════════════════════════════════════════════
 function updateChipPrices() {
-  const vtype = document.getElementById('bk-vtype').value;
+  const vtype = document.getElementById('bk-vtype').value; // car | truck | suv
   const ceramicSelected = document.getElementById('chip-ceramic').classList.contains('selected');
 
   // If ceramic is selected, wash is included — grey it out
@@ -1889,9 +1891,13 @@ function updateChipPrices() {
     washChip.style.pointerEvents = '';
   }
 
-  document.getElementById('price-wash').textContent    = vtype === 'suv' ? 'SUVs & Trucks $75' : 'Cars $65';
-  document.getElementById('price-ceramic').textContent = vtype === 'suv' ? 'Cars $150 · SUVs $170' : 'Cars $150 · SUVs $170';
-  document.getElementById('price-interior').textContent = vtype === 'suv' ? 'SUVs $145' : 'Cars & Trucks $125';
+  const washPrice     = SERVICE_PRICES['chip-wash'][vtype];
+  const ceramicPrice  = SERVICE_PRICES['chip-ceramic'][vtype];
+  const interiorPrice = SERVICE_PRICES['chip-interior'][vtype];
+
+  document.getElementById('price-wash').textContent     = `$${washPrice}`;
+  document.getElementById('price-ceramic').textContent  = `$${ceramicPrice}`;
+  document.getElementById('price-interior').textContent = `$${interiorPrice}`;
 }
 
 function toggleChip(el) {
@@ -1919,12 +1925,14 @@ function togglePetHair(el) {
   el.classList.toggle('selected');
 }
 
-// Pricing per service per vehicle type
+// Pricing per service per vehicle type.
+// Exterior services (wash, ceramic): truck priced same as SUV (bigger exterior surface).
+// Interior services (interior clean): truck priced same as car (similar cabin size).
 const SERVICE_PRICES = {
-  'chip-wash':     { label: 'Basic Wash',          car: 65,  suv: 75,  flat: false },
-  'chip-ceramic':  { label: 'Ceramic Package',      car: 150, suv: 170, flat: false }, // Wash ($65/$75) + Ceramic ($85/$95) combined
-  'chip-interior': { label: 'Interior Deep Clean',  car: 125, suv: 145, flat: false },
-  'chip-pethair':  { label: 'Pet Hair Removal',     car: 35,  suv: 35,  flat: true  },
+  'chip-wash':     { label: 'Basic Wash',          car: 65,  truck: 75,  suv: 75,  flat: false },
+  'chip-ceramic':  { label: 'Ceramic Package',      car: 150, truck: 170, suv: 170, flat: false },
+  'chip-interior': { label: 'Interior Deep Clean',  car: 125, truck: 125, suv: 145, flat: false },
+  'chip-pethair':  { label: 'Pet Hair Removal',     car: 35,  truck: 35,  suv: 35,  flat: true  },
 };
 
 function getSelectedServices() {
@@ -1934,13 +1942,13 @@ function getSelectedServices() {
 }
 
 function getSelectedServicesWithPricing() {
-  const vtype = document.getElementById('bk-vtype').value;
+  const vtype = document.getElementById('bk-vtype').value; // 'car' | 'truck' | 'suv'
   const selected = [];
   let total = 0;
   Object.entries(SERVICE_PRICES).forEach(([id, s]) => {
     const el = document.getElementById(id);
     if (el && el.classList.contains('selected')) {
-      const price = s.flat ? s.car : (vtype === 'suv' ? s.suv : s.car);
+      const price = s.flat ? s.car : (s[vtype] !== undefined ? s[vtype] : s.car);
       // For ceramic, show the breakdown note
       const label = (id === 'chip-ceramic')
         ? `Ceramic Package (incl. Basic Wash)`
