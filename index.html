@@ -227,6 +227,15 @@
     .time-slot.selected { background:var(--gold); border-color:var(--gold); color:var(--black); font-weight:700; }
     .time-slot.slot-disabled { color:#333; cursor:not-allowed; text-decoration:line-through; border-style:dashed; }
 
+    /* ── Move Booking Modal ── */
+    .move-time-slot {
+      border:1px solid var(--border); border-radius:var(--r); padding:9px;
+      text-align:center; cursor:pointer; font-size:13px; transition:all .15s;
+    }
+    .move-time-slot.selected { background:var(--gold); border-color:var(--gold); color:var(--black); font-weight:700; }
+    .move-time-slot.slot-booked { border-color:var(--red); color:var(--red); opacity:.7; }
+    .move-time-slot.slot-unapproved { border-color:#444; color:#555; }
+
     /* ── Available Dates List ── */
     .avail-date-btn {
       display:flex; align-items:center; justify-content:space-between;
@@ -646,6 +655,35 @@
 
   </div><!-- /modal-box -->
 </div><!-- /admin-panel-modal -->
+
+<!-- ══ MOVE BOOKING MODAL ══ -->
+<div class="modal-overlay" id="move-booking-modal">
+  <div class="modal-box" style="max-width:480px;">
+    <button class="modal-close" onclick="closeMoveBooking()">✕</button>
+    <div class="modal-title">Move Booking</div>
+    <div class="modal-sub" id="move-booking-customer"></div>
+
+    <div class="field" style="margin-bottom:16px;">
+      <label class="field-label">New Date</label>
+      <input type="date" id="move-date-input" onchange="renderMoveTimeSlots()" />
+    </div>
+
+    <div id="move-time-section" style="display:none;">
+      <label class="field-label" style="display:block;margin-bottom:8px;">Available Times</label>
+      <div id="move-time-slots" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
+      <input type="hidden" id="move-time-value" />
+      <p id="move-time-note" style="font-size:12px;color:var(--muted);margin-bottom:4px;"></p>
+
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:10px;font-size:13px;color:var(--muted);">
+        <input type="checkbox" id="move-override" onchange="renderMoveTimeSlots()" style="width:auto;padding:0;" />
+        Override — show all times regardless of conflicts
+      </label>
+    </div>
+
+    <button class="btn-admin-action" onclick="confirmMoveBooking()" style="margin-top:20px;">✓ Confirm Move</button>
+    <p id="move-msg" style="text-align:center;font-size:13px;margin-top:10px;min-height:18px;"></p>
+  </div>
+</div>
 
 <!-- ══ HERO ══ -->
 <section id="hero">
@@ -1476,7 +1514,10 @@ function renderBookingsSpreadsheet() {
       <td class="services-cell">${serviceHtml}</td>
       <td style="white-space:nowrap;font-weight:700;color:var(--gold)">${b.total ? '$'+b.total : '—'}</td>
       <td style="font-size:12px;color:var(--muted);max-width:140px">${b.notes || '—'}</td>
-      <td><button class="btn-cancel-booking" onclick="cancelBooking(${origIdx})">Cancel</button></td>
+      <td style="white-space:nowrap;">
+        <button class="btn-cancel-booking" style="border-color:var(--gold);color:var(--gold);margin-right:4px;" onclick="openMoveBooking(${origIdx})">Move</button>
+        <button class="btn-cancel-booking" onclick="cancelBooking(${origIdx})">Cancel</button>
+      </td>
     `;
     tbody.appendChild(tr);
   });
@@ -1492,6 +1533,141 @@ async function cancelBooking(index) {
   SCHEDULE.bookings.splice(index, 1);
   await saveSchedule(SCHEDULE);
   renderBookingsSpreadsheet();
+}
+
+// ═══════════════════════════════════════════════════
+//  MOVE BOOKING
+// ═══════════════════════════════════════════════════
+let movingBookingIdx = null;
+
+function openMoveBooking(idx) {
+  movingBookingIdx = idx;
+  const b = SCHEDULE.bookings[idx];
+  if (!b) return;
+
+  document.getElementById('move-booking-customer').textContent =
+    `${b.name} — ${b.services} — currently ${b.date} @ ${b.time}`;
+  document.getElementById('move-date-input').value = b.date;
+  document.getElementById('move-time-section').style.display = 'none';
+  document.getElementById('move-override').checked = false;
+  document.getElementById('move-msg').textContent = '';
+
+  document.getElementById('move-booking-modal').classList.add('open');
+  renderMoveTimeSlots();
+}
+
+function closeMoveBooking() {
+  document.getElementById('move-booking-modal').classList.remove('open');
+  movingBookingIdx = null;
+}
+
+function renderMoveTimeSlots() {
+  if (movingBookingIdx === null) return;
+  const b = SCHEDULE.bookings[movingBookingIdx];
+  if (!b) return;
+
+  const dateVal = document.getElementById('move-date-input').value;
+  if (!dateVal) return;
+
+  document.getElementById('move-time-section').style.display = 'block';
+  document.getElementById('move-time-value').value = '';
+
+  const override = document.getElementById('move-override').checked;
+  const bufHours = getBufferHours(b.services || '');
+
+  // Calculate booked/buffered slots for this date, EXCLUDING the booking being moved
+  // (so it doesn't block its own current slot when checking the same date)
+  const bookingsExcludingThis = (SCHEDULE.bookings || []).filter((bk, i) => i !== movingBookingIdx && bk.date === dateVal);
+  const tempBooked = new Set();
+  bookingsExcludingThis.forEach(bk => {
+    const startIdx = ALL_TIME_SLOTS.indexOf(bk.time);
+    if (startIdx === -1) return;
+    const bkBuf = getBufferHours(bk.services || '');
+    for (let i = startIdx; i < Math.min(startIdx + bkBuf, ALL_TIME_SLOTS.length); i++) tempBooked.add(ALL_TIME_SLOTS[i]);
+    for (let i = startIdx - bkBuf + 1; i < startIdx; i++) { if (i >= 0) tempBooked.add(ALL_TIME_SLOTS[i]); }
+  });
+
+  const approvedForDay = ((SCHEDULE.approvedDates || {})[dateVal]) || [];
+  const slotsContainer = document.getElementById('move-time-slots');
+  const note = document.getElementById('move-time-note');
+  slotsContainer.innerHTML = '';
+
+  let shownCount = 0;
+  ALL_TIME_SLOTS.forEach(t => {
+    const isBooked   = tempBooked.has(t);
+    const isApproved = approvedForDay.includes(t);
+    const isUnavailable = isBooked || !isApproved;
+
+    if (!override && isUnavailable) return;
+
+    const btn = document.createElement('div');
+    btn.className = 'move-time-slot';
+    if (isBooked) {
+      btn.classList.add('slot-booked');
+      btn.textContent = t + ' ⚠ booked';
+    } else if (!isApproved) {
+      btn.classList.add('slot-unapproved');
+      btn.textContent = t + ' (not approved)';
+    } else {
+      btn.textContent = t;
+    }
+    btn.dataset.time = t;
+    btn.onclick = function() {
+      document.querySelectorAll('#move-time-slots .move-time-slot').forEach(s => s.classList.remove('selected'));
+      this.classList.add('selected');
+      document.getElementById('move-time-value').value = this.dataset.time;
+    };
+    slotsContainer.appendChild(btn);
+    shownCount++;
+  });
+
+  if (shownCount === 0) {
+    slotsContainer.innerHTML = '<span style="font-size:13px;color:var(--red);">No open slots on this date. Check override to force the move.</span>';
+    note.textContent = '';
+  } else if (override) {
+    note.textContent = '⚠ Override on — red = booked, grey = not approved. You can still select any slot.';
+    note.style.color = 'var(--red)';
+  } else {
+    note.textContent = `This job needs a ${bufHours}hr window — only showing slots that fit without conflicts.`;
+    note.style.color = 'var(--muted)';
+  }
+}
+
+async function confirmMoveBooking() {
+  if (movingBookingIdx === null) return;
+  const newDate = document.getElementById('move-date-input').value;
+  const newTime = document.getElementById('move-time-value').value;
+  const msg = document.getElementById('move-msg');
+
+  if (!newDate || !newTime) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Please select a date and time.';
+    return;
+  }
+
+  await loadSchedule(); // refresh before writing in case other devices changed things
+  const b = SCHEDULE.bookings[movingBookingIdx];
+  if (!b) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'This booking no longer exists — it may have been moved or cancelled elsewhere.';
+    return;
+  }
+
+  b.date = newDate;
+  b.time = newTime;
+
+  const ok = await saveSchedule(SCHEDULE);
+  if (ok) {
+    msg.style.color = 'var(--green)';
+    msg.textContent = `✓ Moved to ${newDate} at ${newTime}.`;
+    setTimeout(() => {
+      closeMoveBooking();
+      renderBookingsSpreadsheet();
+    }, 1000);
+  } else {
+    msg.style.color = 'var(--red)';
+    msg.textContent = '⚠ Could not save — check your connection.';
+  }
 }
 
 // ═══════════════════════════════════════════════════
