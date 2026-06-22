@@ -1023,6 +1023,7 @@ const DEFAULT_SCHEDULE = {
   approvedDates: {},       // Admin-approved specific dates available for booking
   blockedTimesPerDate: {},
   bookings: [],
+  customers: [],           // Recurring customers — synced across all devices
 };
 
 // Helper — ensure approvedDates is always an object, never an array
@@ -1055,24 +1056,15 @@ async function loadSchedule() {
     const res = await fetch(SCHEDULE_API);
     if (!res.ok) throw new Error('Server unavailable');
     const data = await res.json();
-    // Merge carefully — never let old array format wipe object format
+    // Server is always the source of truth — never merge with local cache
     SCHEDULE = { ...DEFAULT_SCHEDULE, ...data };
     ensureApprovedDates();
-    // Preserve local approvedDates if server returned empty/array
-    const localCache = getLocalCache();
-    if (localCache && localCache.approvedDates && !Array.isArray(localCache.approvedDates)) {
-      const serverApproved = SCHEDULE.approvedDates;
-      const localApproved  = localCache.approvedDates;
-      // Use whichever has more data
-      if (Object.keys(localApproved).length > Object.keys(serverApproved).length) {
-        SCHEDULE.approvedDates = localApproved;
-      }
-    }
-    setLocalCache(SCHEDULE);
+    setLocalCache(SCHEDULE); // update cache to match server, for offline fallback only
     return SCHEDULE;
   } catch(err) {
-    // Server not available — use local cache or defaults, never crash
-    console.warn('Schedule: using local fallback.', err.message);
+    // Server unreachable (e.g. no internet) — fall back to local cache so the
+    // site doesn't crash, but this should be rare and temporary
+    console.warn('Schedule: server unreachable, using local fallback.', err.message);
     const cached = getLocalCache();
     SCHEDULE = { ...DEFAULT_SCHEDULE, ...(cached || {}) };
     ensureApprovedDates();
@@ -1384,6 +1376,7 @@ async function switchAdminTab(tab, btn) {
     renderBookingsSpreadsheet();
   }
   if (tab === 'customers') {
+    await loadSchedule(); // always pull fresh customer data from server
     renderCustomers();
   }
   if (tab === 'manual') {
@@ -1675,15 +1668,12 @@ let editingCustomerIdx = null;
 let customersFilter = '';
 
 function getCustomers() {
-  try {
-    const raw = localStorage.getItem('jj_customers');
-    if (raw) return JSON.parse(raw);
-  } catch(e) {}
-  return [];
+  return SCHEDULE.customers || [];
 }
 
-function setCustomers(list) {
-  try { localStorage.setItem('jj_customers', JSON.stringify(list)); } catch(e) {}
+async function setCustomers(list) {
+  SCHEDULE.customers = list;
+  await saveSchedule(SCHEDULE); // sync to server immediately
 }
 
 function toggleCustomerForm() {
@@ -1708,7 +1698,7 @@ function cancelCustomerForm() {
   document.getElementById('cust-msg').textContent = '';
 }
 
-function saveCustomer() {
+async function saveCustomer() {
   const name  = document.getElementById('cust-name').value.trim();
   const phone = document.getElementById('cust-phone').value.trim();
   const notes = document.getElementById('cust-notes').value.trim();
@@ -1720,14 +1710,16 @@ function saveCustomer() {
     return;
   }
 
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Saving…';
+
   const customers = getCustomers();
   if (editingCustomerIdx !== null) {
     customers[editingCustomerIdx] = { name, phone, notes };
-    msg.textContent = '';
   } else {
     customers.push({ name, phone, notes });
   }
-  setCustomers(customers);
+  await setCustomers(customers);
   cancelCustomerForm();
   renderCustomers();
 }
@@ -1744,11 +1736,11 @@ function editCustomer(idx) {
   document.getElementById('cust-name').focus();
 }
 
-function deleteCustomer(idx) {
+async function deleteCustomer(idx) {
   if (!confirm('Remove this customer?')) return;
   const customers = getCustomers();
   customers.splice(idx, 1);
-  setCustomers(customers);
+  await setCustomers(customers);
   renderCustomers();
 }
 
