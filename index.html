@@ -298,6 +298,14 @@
     .contact-item-value a { color:var(--gold); text-decoration:none; }
     .contact-item-value a:hover { color:var(--gold-lt); }
 
+    /* SOCIAL */
+    .social-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:4px; }
+    .social-btn { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:999px; padding:7px 16px; font-size:12px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--gold); text-decoration:none; background:transparent; transition:border-color .2s, background .2s, color .2s; }
+    .social-btn:hover { border-color:var(--gold); background:var(--gold-dim); color:var(--gold-lt); }
+    .footer-links { flex-wrap:wrap; }
+    .footer-social { color:var(--gold)!important; font-weight:600; }
+    .footer-social:hover { color:var(--gold-lt)!important; }
+
 
     /* ── Admin Tabs ── */
     .admin-tabs { flex-wrap:wrap; }
@@ -440,6 +448,10 @@
   <a href="#pricing" onclick="closeMenu()">Pricing</a>
   <a href="#about" onclick="closeMenu()">About</a>
   <a href="#contact" onclick="closeMenu()" style="color:var(--gold);font-weight:600;">Book Now →</a>
+  <div style="display:flex;gap:20px;border-top:1px solid var(--border);padding-top:16px;">
+    <a href="https://www.instagram.com/jjprecisionmobiledetailing/" target="_blank" rel="noopener" onclick="closeMenu()">Instagram</a>
+    <a href="https://www.facebook.com/jjprecisionmobiledetailing" target="_blank" rel="noopener" onclick="closeMenu()">Facebook</a>
+  </div>
 </div>
 
 <!-- ══ ADMIN PASSWORD MODAL ══ -->
@@ -876,6 +888,14 @@
       <div class="contact-item-label">Hours</div>
       <div class="contact-item-value">Mon–Sat, By Appointment</div>
     </div>
+    <div class="contact-item">
+      <div class="contact-item-label">Follow Us</div>
+      <div class="social-row">
+        <a class="social-btn" href="https://www.instagram.com/jjprecisionmobiledetailing/" target="_blank" rel="noopener">Instagram</a>
+        <a class="social-btn" href="https://www.facebook.com/jjprecisionmobiledetailing" target="_blank" rel="noopener">Facebook</a>
+      </div>
+      <div style="color:var(--muted);font-size:13px;margin-top:8px;">See our latest work &amp; before/afters</div>
+    </div>
   </div>
 
   <!-- Service area notice -->
@@ -1046,6 +1066,8 @@
     <a href="#services">Services</a>
     <a href="#pricing">Pricing</a>
     <a href="#contact">Contact</a>
+    <a class="footer-social" href="https://www.instagram.com/jjprecisionmobiledetailing/" target="_blank" rel="noopener">Instagram</a>
+    <a class="footer-social" href="https://www.facebook.com/jjprecisionmobiledetailing" target="_blank" rel="noopener">Facebook</a>
   </div>
 </footer>
 
